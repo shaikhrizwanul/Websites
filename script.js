@@ -159,39 +159,82 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 5. Form Submission Handling
+    // 5. Form Submission Handling via Web3Forms API
     if (contactForm) {
-        contactForm.addEventListener('submit', function(e) {
+        contactForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
             const submitBtn = this.querySelector('.submit-btn');
             const originalText = submitBtn.innerHTML;
+            
+            // Validation: Ensure an access key is set
+            const accessKeyInput = this.querySelector('input[name="access_key"]');
+            if (accessKeyInput.value === 'YOUR_ACCESS_KEY_HERE') {
+                alert("Please replace 'YOUR_ACCESS_KEY_HERE' in index.html with your actual Web3Forms access key.");
+                return;
+            }
             
             // Loading state
             submitBtn.innerHTML = '<i class="ph ph-spinner-gap ph-spin"></i> Sending...';
             submitBtn.style.opacity = '0.8';
             submitBtn.disabled = true;
             
-            // Simulate API call delay
-            setTimeout(() => {
-                // Success state
-                submitBtn.innerHTML = '<i class="ph ph-check-circle"></i> Message Sent Successfully!';
-                submitBtn.style.backgroundColor = '#25D366';
+            try {
+                // Gather form data
+                const formData = new FormData(this);
+                
+                // Append the manually selected files to the FormData
+                if (selectedFiles.length > 0) {
+                    // Web3Forms accepts multiple files under the same key if the key ends in brackets `[]` or if it's named 'attachment'
+                    selectedFiles.forEach((file, index) => {
+                        formData.append(`attachment_${index}`, file);
+                    });
+                }
+                
+                // Send request to Web3Forms
+                const response = await fetch('https://api.web3forms.com/submit', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Success state
+                    submitBtn.innerHTML = '<i class="ph ph-check-circle"></i> Message Sent Successfully!';
+                    submitBtn.style.backgroundColor = '#25D366';
+                    submitBtn.style.color = '#fff';
+                    submitBtn.style.borderColor = '#25D366';
+                    
+                    // Reset form
+                    this.reset();
+                    selectedFiles = [];
+                    updateFileUI();
+                    
+                    // Return button to normal after 4 seconds
+                    setTimeout(() => {
+                        submitBtn.innerHTML = originalText;
+                        submitBtn.style = '';
+                        submitBtn.disabled = false;
+                    }, 4000);
+                } else {
+                    throw new Error(data.message || 'Form submission failed');
+                }
+            } catch (error) {
+                console.error('Error submitting form:', error);
+                
+                // Error state
+                submitBtn.innerHTML = '<i class="ph ph-x-circle"></i> Failed to send. Please try WhatsApp.';
+                submitBtn.style.backgroundColor = '#ef4444';
+                submitBtn.style.borderColor = '#ef4444';
                 submitBtn.style.color = '#fff';
-                submitBtn.style.borderColor = '#25D366';
                 
-                // Reset form
-                this.reset();
-                selectedFiles = [];
-                updateFileUI();
-                
-                // Return button to normal after 3 seconds
                 setTimeout(() => {
                     submitBtn.innerHTML = originalText;
                     submitBtn.style = '';
                     submitBtn.disabled = false;
-                }, 3000);
-            }, 1500);
+                }, 4000);
+            }
         });
     }
 });
